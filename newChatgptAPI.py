@@ -4,14 +4,11 @@ import subprocess
 
 import asyncWebAPI
 
-import os
+
 import time
 import threading
 from playwright.sync_api import sync_playwright
 
-chrome_path = os.path.expandvars(
-    r"%LOCALAPPDATA%\Google\Chrome\Application\chrome.exe"
-)
 
 not_Answers = ("Searching the web", "None")
 
@@ -91,7 +88,7 @@ async def ask(page, question, better_prompt=True, starter="!", tries=30, wait_ti
                     
 
 async def main():
-    async with asyncWebAPI.AsyncChrome(chrome_path, headless=False) as browser:
+    async with asyncWebAPI.AsyncChrome(headless=False) as browser:
         #context = browser.contexts[0]
 
         #page = (context.pages[0] if context.pages else await context.new_page())

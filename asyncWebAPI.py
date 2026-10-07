@@ -5,7 +5,7 @@ from playwright.async_api import async_playwright
 class AsyncChrome:
     CDP_URL = "http://127.0.0.1:9222"
 
-    def __init__(self, chrome_path, headless=False):
+    def __init__(self, chrome_path=None, headless=False):
         self.chrome_path = chrome_path
         self.headless = headless
 
@@ -26,6 +26,8 @@ class AsyncChrome:
 
         except Exception:
             try:
+                import os
+                chrome_path = os.path.expandvars(r"%LOCALAPPDATA%\Google\Chrome\Application\chrome.exe")
                 # No debugging Chrome found → launch our own browser
                 self.browser = await self.playwright.chromium.launch(
                     executable_path=self.chrome_path,
