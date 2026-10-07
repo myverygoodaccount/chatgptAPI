@@ -2,7 +2,6 @@ import requests
 import asyncio
 import subprocess
 
-import webAPI
 import asyncWebAPI
 
 import os
@@ -13,6 +12,8 @@ from playwright.sync_api import sync_playwright
 chrome_path = os.path.expandvars(
     r"%LOCALAPPDATA%\Google\Chrome\Application\chrome.exe"
 )
+
+not_Answers = ("Searching the web", "None")
 
 
 async def asleep(page, time=1000):
@@ -30,7 +31,7 @@ async def say(page, msg):
     
     
 async def getMessages(page) -> str:
-    rvalue = None
+    rvalue = str()
     
     
     await page.wait_for_selector("li[data-message-role]")
@@ -68,7 +69,7 @@ async def ask(page, question, better_prompt=True, starter="!", tries=30, wait_ti
     await say(page, question)
     
     await page.wait_for_timeout(wait_time)
-    answer = None
+    answer = str()
     
     for i in range(tries):
         try:
@@ -82,7 +83,7 @@ async def ask(page, question, better_prompt=True, starter="!", tries=30, wait_ti
                 break
         await asleep(page)
         
-    print("AI: "+answer)
+    print("AI: " + answer)
     return answer
             
             
@@ -160,22 +161,3 @@ async def main():
             
 
 asyncio.run(main())
-
-'''
-chrome = webAPI(chrome_path)
-browser = chrome.start()
-context = browser.contexts[0]
-page = None
-if context.pages: page = context.pages[0]
-else: page = context.new_page()
-    
-#browser = p.chromium.launch(executable_path=chrome_path, headless=False)
-#page = browser.new_page()
-'''
-
-
-'''
-1) <button type="submit" data-icon-only="" data-radius="full" data-size="medium" data-oai-tooltip="" aria-disabled="true" data-variant="primary" data-composer-submit="" aria-label="Send message" data-visually-disabled="" data-w-component="button" data-icon-position="start" data-icon-shape="non-circular" data-oai-tooltip-side="bottom" data-send-label="Send message" data-stop-label="Stop generating" data-octane-bindings="d:c95d6a90" class="xlpm8z4 xxyica1 x1cpjm7i x1dxl39w x1hmns74 xjbqb8w xn3w4p2 xnvt7iq …>…</button> aka get_by_role("button", name="Send message")
-2) <button tabindex="-1" type="submit" value="backdrop" aria-label="Dismiss" data-bottom-sheet-dismiss-button="" class="xjyslct xjbqb8w x5yr21d xu82sp8 xh8yej3 x1717udv"></button> aka get_by_label("Clear current chat?").get_by_label("Dismiss")
-3) <button type="submit" data-icon-only="" aria-label="Close" data-radius="full" data-size="medium" data-variant="ghost" data-w-component="but
-'''
