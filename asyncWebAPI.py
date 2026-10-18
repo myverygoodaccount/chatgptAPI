@@ -1,18 +1,19 @@
 import asyncio
 from playwright.async_api import async_playwright
 
-
 class AsyncChrome:
     CDP_URL = "http://127.0.0.1:9222"
 
-    def __init__(self, chrome_path=None, headless=False):
+    def __init__(self, chrome_path=None, headless=False, channel=None):
         self.chrome_path = chrome_path
         self.headless = headless
+        self.channel = channel
 
         self.playwright = None
         self.browser = None
         self._owns_browser = False
-
+        
+        
     async def __aenter__(self):
         self.playwright = await async_playwright().start()
 
@@ -35,7 +36,7 @@ class AsyncChrome:
                 )
                 self._owns_browser = True
             except Exception: #else just launch normally
-                self.browser = await self.playwright.chromium.launch(headless=self.headless)
+                self.browser = await self.playwright.chromium.launch(headless=self.headless,)
                 self._owns_browser = True
         return self.browser
 

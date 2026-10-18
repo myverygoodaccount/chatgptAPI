@@ -1,13 +1,7 @@
-import requests
 import asyncio
-import subprocess
-
 import asyncWebAPI
-
 import os
-import time
-import threading
-from playwright.sync_api import sync_playwright
+
 
 chrome_path = os.path.expandvars(
     r"%LOCALAPPDATA%\Google\Chrome\Application\chrome.exe"
@@ -22,26 +16,96 @@ class chatgptAPI():
         self.browser = None
         self.page = None
         self.ready = False
+        self.closedCookies = False
+        self.closedLogin = False
 
 
     async def asleep(self, time=1000):
+        if not self.page: return
         await self.page.wait_for_timeout(time)
+        
+        
+    async def checkCookieClose(self):
+        if self.closedCookies or not self.page: return self.closedCookies
+        #cookies close button
+        #<button class="x6s0dn4 xgwjoxm x1y0btm7 x16hnadc x1gnnqk1 x9f619 x1ypdohk x3nfvp2 xln7xf2 x123onwq x17j2mab xc0rdgb xl56j7k x1q51uy1 xeh89su xtc8aji xj0wd6c x1n2onr6 x2b8uid x1b2iylo xwgcxoh x1hl2dhg x1yi2j16 xewkrzm xllfjz4 x9r1u3d x15lsfg0 x31jatw xrt0l5h x13yhu5o x8sjwkw x1717udv" aria-label="Close" data-icon-only="" data-icon-position="start" data-icon-shape="non-circular" data-radius="full" data-size="medium" data-variant="ghost" data-w-component="button" type="submit"><!--[--><svg class="x1o5euxr x1nqut7k" aria-hidden="true" fill="currentColor" viewBox="0 0 20 20"><use href="#lightweight-shell-close"></use></svg><!--]--></button>
+        
+        # Check if it exists
+        #count = await self.page.get_by_role("button", name="Close").count()
+        button = self.page.locator(
+            'button[name="action"]'
+            '[type="submit"]'
+        )
+
+        #<button class="x3nfvp2 x1ypdohk x1s07b3s x6s0dn4 xl56j7k x1rlenzs x1s1q5bf xgwjoxm x1hl2dhg x1w74yt8 xgdialr x12w9bfk xwwtwea x10xqvdj x7yjavj x16hnadc x1y0btm7 x124b2mw xjbqb8w x19ilscj x7ihgcz" name="action" value="reject" type="submit"><!--[--><!--[--><!--[--><!--[--><span class="xjb2p0i x1ghz6dp x123onwq x1jo673t xlyb1x0 x1gqwrcx x1jhh6j5"><!--[--><!--[-->Reject non-essential<!--]--><!--]--></span><!--]--><!--]--><!--]--><!--]--></button>
+        
+        count = await button.count()
+
+        for i in range(count):
+            b = button.nth(i)
+            if await b.is_visible():
+                
+                #print(f"Button {i}: visible={await b.is_visible()}")
+                await b.click()
+                self.closedCookies = True
+                print("[SYSTEM]: cookies closed")
+                break
+            
+                
+        return self.closedCookies
+    
+    async def checkCloseLogin(self):
+        if self.closedLogin or not self.page: return self.closedLogin
+
+        #<button class="x6s0dn4 xgwjoxm x1y0btm7 x16hnadc x1gnnqk1 x9f619 x1ypdohk x126qsmr x3nfvp2 xln7xf2 x123onwq x17j2mab xc0rdgb xl56j7k x1q51uy1 xeh89su xtc8aji xj0wd6c xioxnex x2b8uid x1b2iylo xwgcxoh x1hl2dhg x1yi2j16 x17venrh xuop9uq x9r1u3d xe8imf4 xbs2zpe xfn6l9v x15lsfg0 x31jatw xrt0l5h x8sjwkw x2js1xq xge05pp x1p6o7d4 x8l6jtp x1717udv x10l6tqk" aria-label="Close" data-icon-only="" data-icon-position="start" data-icon-shape="non-circular" data-radius="full" data-size="medium" data-variant="ghost" data-w-component="button" type="submit" data-bottom-sheet-close="" value="close-button"><!--[--><svg class="x1o5euxr x117rol3 x1nqut7k" aria-hidden="true" fill="none" height="20" viewBox="0 0 20 20" width="20"><use href="#lightweight-auth-close"></use></svg><!--]--></button>
+
+        button = self.page.locator(
+            'button[value="close-button"]'
+            '[aria-label="Close"]'
+            '[type="submit"]'
+        )
+        count = await button.count()
+
+        for i in range(count):
+            b = button.nth(i)
+            if await b.is_visible():
+                
+                #print(f"Button {i}: visible={await b.is_visible()}")
+                await b.click()
+                self.closedLogin = True
+                print("[SYSTEM]: cookies closed")
+                break
+
+        return self.closedLogin
 
 
     async def say(self, msg):
         page = self.page
-        textarea = await page.query_selector("#mobile-composer-prompt")
-    
-        await textarea.focus()
-        await textarea.fill(msg)
-        await textarea.dispatch_event("input", {"bubbles": True})
+        if not page: return
+        #textarea = await page.query_selector("#mobile-composer-prompt")
 
-        await page.locator('button[data-composer-submit][aria-label="Send message"]').click()
+        try:
+            textarea = page.locator("#mobile-composer-prompt")
+            await textarea.wait_for(state="visible", timeout=1000)
+
         
+            await textarea.focus()
+            await textarea.fill(msg)
+            await textarea.dispatch_event("input", {"bubbles": True})
+
+            
+            await page.locator('button[data-composer-submit][aria-label="Send message"]').click()
+
+        except Exception as e:
+            print(f"[SYSTEM]: {e}")
+            return False
+        
+        return True
         
         
     async def getMessages(self) -> str:
         rvalue = str()
+        if not self.page: return rvalue
         
         
         await self.page.wait_for_selector("li[data-message-role]")
@@ -71,11 +135,19 @@ class chatgptAPI():
             
             
 
-    async def ask(self, question, printing=False, better_prompt=True, tries=30, delay_time=1000, retry_time = 100, starter="!") -> str:
-        if not self.ready: return ""
+    async def ask(self, question, printing=False, better_prompt=True, tries=30, delay_time=1000, retry_time = 100, starter="!", checkCookies=True, checkLogin=True) -> str:
+        if not self.ready or not self.page: return ""
 
         if better_prompt:
             question = f"Answer as shortly and simply as possible. Also your answer must start with '{starter}'. " + question
+
+
+
+        if checkLogin:
+            if await self.checkCloseLogin():
+                checkLogin=False
+
+
         
         await self.say(question)
         
@@ -84,6 +156,14 @@ class chatgptAPI():
         
         for i in range(tries):
             await self.asleep(retry_time)
+            
+            if checkCookies:
+                if await self.checkCookieClose():
+                    checkCookies = False
+
+            if checkLogin:
+                if await self.checkCloseLogin():
+                    checkLogin=False
 
             try:
                 answer = await self.getMessages()
@@ -101,24 +181,61 @@ class chatgptAPI():
                 
                 
                         
-                        
-
     
     async def start(self):
         self.browser = await asyncWebAPI.AsyncChrome(
             chrome_path,
-            headless=self.headless
+            headless=self.headless,
+            channel="chromium"
         ).__aenter__()
 
-        self.page = await self.browser.new_page(locale="en-US")
+        page = await self.browser.new_page(locale="en-US")
+        self.page = page
+
 
         await self.page.goto(
             "https://chatgpt.com",
             timeout=40000
         )
 
+        await self.page.bring_to_front()
+        await page.wait_for_timeout(5000)
+
+
+        async def checkHeadless():
+            #headless doesn't work because of cloudflare bot captcha
+
+            #await self.page.locator("body").click(position={"x": 10, "y": 10})
+
+
+
+            print("Title:", await page.title())
+
+            for selector in [
+                "#mobile-composer-prompt",
+                "textarea",
+                "textarea",
+                "[contenteditable='true']",
+                "input",
+            ]:
+                print(selector, await page.locator(selector).count())
+
+            print("Frames:")
+            for frame in page.frames:
+                print(frame.url)
+                print("Composer:", await frame.locator(
+                    "#mobile-composer-prompt"
+                ).count())
+
+            await page.screenshot(path="headless-debug.png")
+
+
+
+
         self.ready = True
-        print("ready")
+        print("[SYSTEM]: Initialized.")
+
+
     '''
 
     async def start(self):
@@ -148,24 +265,38 @@ class chatgptAPI():
             self.ready = False
             
 
-#asyncio.run(main())
-async def main():
-    ai = chatgptAPI()
-    await ai.start()
 
-    for i in range(10):
-        answer = await ai.ask(input("ask something: "), printing=True)
+#EXAMPLES:
+
+
+async def main2():
+    ai = chatgptAPI()
+    ai2 = chatgptAPI(headless=False) #headless doesn't work because of captcha. (also requires admin)
+    await ai.start()
+    await ai2.start()
+
+    answer2=None
+    for i in range(20):
+        answer = await ai.ask(answer2 or input("ask something: "), printing=True)
+        answer2 = await ai2.ask(answer, printing=True)
 
     await ai.asleep(1000000)
 
     await ai.close()
 
 
+async def main():
+    ai = chatgptAPI(headless=False)
+    await ai.start()
+    await ai.ask(input("Ask ai: "), printing=True)
+    await ai.close()
+
 asyncio.run(main())
 
 
 
 
+#Ignore these
 
 # selector: \33 b5f6155-07bd-4cae-a6c7-2757f2d14035 > div.xjbqb8w.xbs2zpe.x1jchvi3.xh8yej3.x14nib4c.x193iq5w.xeuugli.x1n2onr6
             #whole container?: <div class="xjbqb8w xbs2zpe x1jchvi3 xh8yej3 x14nib4c x193iq5w xeuugli x1n2onr6"><span aria-hidden="true" data-assistant-placeholder-slot="" class="x1spfj64" hidden=""><span class="xyw15ih xl8t4ro x1u6ievf xa4qsjk x1urxqfu x1aquc0h xn0cd8s x1fmv208 x1s8s8c9 x1e6avla x1lliihq xka9shp x5bl8le xc5b1jm x2js1xq x1o0tod x10l6tqk"><span></span></span></span><div><div data-assistant-markdown="" class="xh8yej3 x1ghz6dp x193iq5w xeuugli x1mzt3pk xx6l9st xiluyvs x76n50g xmhd2xj x1j0urif x3k6dzt x1ux7cnd xp43mbd xtbxs66 xak2u8z x1yc453h x16sz92x"><?start name="assistant-pending-fd1adf25-ff5e-4101-bdf0-6844e5c1f78d-reasoning"?><?end ?><?start name="assistant-pending-fd1adf25-ff5e-4101-bdf0-6844e5c1f78d-committed"?><?start name="assistant-pending-fd1adf25-ff5e-4101-bdf0-6844e5c1f78d-committed-block-0"?><p class="x1yc453h xma8rkl xgoqxah xutxfr x1fie51u xgyxj25 x1xobyvs x1elgs31 x1fv8qjw xcy5tzr x1ht4adc xnvauns x1c2l018 x14l7nz5 xuw7688 x1pjt2rx x160d6zm xrxpjvj" dir="ltr" data-assistant-stream-block="" data-assistant-stream-block-index="0">I’m doing great,<?marker name="assistant-pending-fd1adf25-ff5e-4101-bdf0-6844e5c1f78d-pending-tail"?> thanks for asking! 😊 How are you?</p>
